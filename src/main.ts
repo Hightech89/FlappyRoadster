@@ -112,8 +112,8 @@ class Game extends Phaser.Scene {
     fontSize: '28px', color: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(10);
 
     // Disappointed Elon, judging you from the game-over screen
-    this.elon = this.add.image(WIDTH / 2, 115, 'elon')
-      .setDisplaySize(130, 130)
+    this.elon = this.add.image(WIDTH / 2, 95, 'elon')
+      .setDisplaySize(115, 115)
       .setDepth(10)
       .setVisible(false);
 
@@ -164,6 +164,7 @@ class Game extends Phaser.Scene {
     this.car.setPosition(ROADSTER_X, HEIGHT / 2).setAngle(0);
     this.scoreText.setText('Score: 0');
     this.infoText.setText(INTRO_TEXT).setVisible(true);
+    this.infoText.setY(HEIGHT / 2 - 120);
     this.elon.setVisible(false);
 
   }
@@ -196,6 +197,7 @@ class Game extends Phaser.Scene {
     try { localStorage.setItem(STORAGE_KEY, String(this.best)); } catch { /* storage optional */ }
 
     this.infoText.setText('GAME OVER\nScore: ' + this.score + '  •  Best: ' + this.best + '\nElon is disappointed.\n\nTap / Space to retry').setVisible(true);
+    this.infoText.setY(280);
     this.elon.setVisible(true);
 
   }
