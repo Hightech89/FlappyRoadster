@@ -10,9 +10,14 @@ const ROADSTER_W = 78;   // roadster.png is 420x280
 const ROCKET_W = 74;     // rocket.png is 130x425
 const ROCKET_H = ROCKET_W * (425 / 130);
 
-// Approximate hitbox half-heights around the roadster sprite center
-const CAR_HALF_TOP = 22;
-const CAR_HALF_BOTTOM = 24;
+// Hitboxes are deliberately smaller than the visuals. The rockets taper to a
+// point at the gap, so their collision box stays narrow to avoid phantom hits.
+const CAR_HALF_TOP = 18;
+const CAR_HALF_BOTTOM = 20;
+const CAR_HIT_HALF_W = 28;
+const ROCKET_HIT_HALF_W = 20;
+
+const INTRO_TEXT = 'FLAPPY ROADSTER\n\nTap / Space to thrust\nDodge the rockets!';
 
 class Game extends Phaser.Scene {
 
@@ -67,7 +72,7 @@ class Game extends Phaser.Scene {
 
     try { this.best = Number(localStorage.getItem(STORAGE_KEY)) || 0; } catch { this.best = 0; }
 
-    this.infoText = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, 'FLAPPY ROADSTER\n\nTap / Space to thrust\nDodge the rockets!', { fontFamily: 'Arial',
+    this.infoText = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, INTRO_TEXT, { fontFamily: 'Arial',
     fontSize: '28px', color: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(10);
 
     this.input.on('pointerdown', () => this.flap());
@@ -78,9 +83,28 @@ class Game extends Phaser.Scene {
 
   private flap() {
 
-    if (this.over) { this.scene.restart(); return; }
+    if (this.over) { this.reset(); return; }
 
     this.started = true; this.infoText.setVisible(false); this.velocity = -310;
+
+  }
+
+  // Manual reset instead of scene.restart(): reuses the already-loaded
+  // textures and avoids re-running the scene loader, which was unreliable.
+  private reset() {
+
+    this.over = false;
+    this.started = false;
+    this.velocity = 0;
+    this.score = 0;
+    this.spawnElapsed = 0;
+
+    for (const p of this.pipes) { p.top.destroy(); p.bottom.destroy(); }
+    this.pipes = [];
+
+    this.car.setPosition(ROADSTER_X, HEIGHT / 2).setAngle(0);
+    this.scoreText.setText('Score: 0');
+    this.infoText.setText(INTRO_TEXT).setVisible(true);
 
   }
 
@@ -139,7 +163,7 @@ class Game extends Phaser.Scene {
 
       if (!p.scored && p.x + ROCKET_W / 2 < ROADSTER_X - ROADSTER_W / 2) { p.scored = true; this.score++; this.scoreText.setText('Score: ' + this.score); }
 
-      if (Math.abs(p.x - ROADSTER_X) < (ROCKET_W / 2 + ROADSTER_W / 2) * 0.75) {
+      if (Math.abs(p.x - ROADSTER_X) < ROCKET_HIT_HALF_W + CAR_HIT_HALF_W) {
 
         const carTop = this.car.y - CAR_HALF_TOP, carBottom = this.car.y + CAR_HALF_BOTTOM;
 
