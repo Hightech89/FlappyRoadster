@@ -1,19 +1,20 @@
 import Phaser from 'phaser';
-import { ROADSTER_PNG, ROCKET_PNG } from './sprites';
+import { ROADSTER_PNG, ROCKET_PNG, ELON_PNG } from './sprites';
 
 const WIDTH = 420, HEIGHT = 720, ROADSTER_X = 100;
 
 const STORAGE_KEY = 'flappy-roadster-best';
 
 // Display sizes for the sprites
-const ROADSTER_W = 78;   // roadster.png is 420x280
+const ROADSTER_W = 78;   // roadster sprite is 167x51 (tightly cropped)
+const ROADSTER_H = ROADSTER_W * (51 / 167);
 const ROCKET_W = 74;     // rocket.png is 130x425
 const ROCKET_H = ROCKET_W * (425 / 130);
 
 // Hitboxes are deliberately smaller than the visuals. The rockets taper to a
 // point at the gap, so their collision box stays narrow to avoid phantom hits.
-const CAR_HALF_TOP = 18;
-const CAR_HALF_BOTTOM = 20;
+const CAR_HALF_TOP = 10;
+const CAR_HALF_BOTTOM = 11;
 const CAR_HIT_HALF_W = 28;
 
 // Half-width of the rocket at a given distance from its nose tip.
@@ -44,6 +45,8 @@ class Game extends Phaser.Scene {
 
   private infoText!: Phaser.GameObjects.Text;
 
+  private elon!: Phaser.GameObjects.Image;
+
   private started = false;
 
   private over = false;
@@ -60,6 +63,7 @@ class Game extends Phaser.Scene {
     // Sprites are embedded as base64 data URLs (see sprites.ts)
     this.load.image('roadster', ROADSTER_PNG);
     this.load.image('rocket', ROCKET_PNG);
+    this.load.image('elon', ELON_PNG);
   }
 
   create() {
@@ -78,7 +82,7 @@ class Game extends Phaser.Scene {
 
     // The Tesla Roadster, scaled to gameplay size
     this.car = this.add.image(ROADSTER_X, HEIGHT / 2, 'roadster')
-      .setDisplaySize(ROADSTER_W, ROADSTER_W * (280 / 420))
+      .setDisplaySize(ROADSTER_W, ROADSTER_H)
       .setDepth(5);
 
     // Cold-gas thruster particles: soft white puffs blasting downward
@@ -107,6 +111,12 @@ class Game extends Phaser.Scene {
     this.infoText = this.add.text(WIDTH / 2, HEIGHT / 2 - 120, INTRO_TEXT, { fontFamily: 'Arial',
     fontSize: '28px', color: '#ffffff', align: 'center' }).setOrigin(0.5).setDepth(10);
 
+    // Disappointed Elon, judging you from the game-over screen
+    this.elon = this.add.image(WIDTH / 2, 115, 'elon')
+      .setDisplaySize(130, 130)
+      .setDepth(10)
+      .setVisible(false);
+
     this.input.on('pointerdown', () => this.flap());
 
     this.input.keyboard?.on('keydown-SPACE', () => this.flap());
@@ -130,7 +140,7 @@ class Game extends Phaser.Scene {
   // Thruster nozzle position under the car, rotated with the car's tilt
   private thrusterPos(offsetX: number): { x: number; y: number } {
     const rad = Phaser.Math.DegToRad(this.car.angle);
-    const oy = 20;
+    const oy = 14;
     return {
       x: this.car.x + offsetX * Math.cos(rad) - oy * Math.sin(rad),
       y: this.car.y + offsetX * Math.sin(rad) + oy * Math.cos(rad)
@@ -154,6 +164,7 @@ class Game extends Phaser.Scene {
     this.car.setPosition(ROADSTER_X, HEIGHT / 2).setAngle(0);
     this.scoreText.setText('Score: 0');
     this.infoText.setText(INTRO_TEXT).setVisible(true);
+    this.elon.setVisible(false);
 
   }
 
@@ -184,7 +195,8 @@ class Game extends Phaser.Scene {
 
     try { localStorage.setItem(STORAGE_KEY, String(this.best)); } catch { /* storage optional */ }
 
-    this.infoText.setText('GAME OVER\nScore: ' + this.score + '  •  Best: ' + this.best + '\n\nTap / Space to retry').setVisible(true);
+    this.infoText.setText('GAME OVER\nScore: ' + this.score + '  •  Best: ' + this.best + '\nElon is disappointed.\n\nTap / Space to retry').setVisible(true);
+    this.elon.setVisible(true);
 
   }
 
