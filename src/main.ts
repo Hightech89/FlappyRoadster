@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { ROADSTER_PNG, ROCKET_PNG } from './sprites';
 
 const WIDTH = 420, HEIGHT = 720, ROADSTER_X = 100;
 
@@ -38,8 +39,9 @@ class Game extends Phaser.Scene {
   constructor() { super('game'); }
 
   preload() {
-    this.load.image('roadster', 'roadster.png');
-    this.load.image('rocket', 'rocket.png');
+    // Sprites are embedded as base64 data URLs (see sprites.ts)
+    this.load.image('roadster', ROADSTER_PNG);
+    this.load.image('rocket', ROCKET_PNG);
   }
 
   create() {
