@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
+import { inject } from '@vercel/analytics';
 import { ROADSTER_PNG, ROCKET_PNG, ELON_PNG, BOT_PNG } from './sprites';
 import { SKYLINE_PNG, SAT_PNG } from './sprites2';
+
+inject();
 
 const WIDTH = 420, HEIGHT = 720, ROADSTER_X = 100;
 
