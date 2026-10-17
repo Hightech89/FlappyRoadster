@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ROADSTER_PNG, ROCKET_PNG, ELON_PNG, BOT_PNG } from './sprites';
-import { SKYLINE_PNG } from './sprites2';
+import { SKYLINE_PNG, SAT_PNG } from './sprites2';
 
 const WIDTH = 420, HEIGHT = 720, ROADSTER_X = 100;
 
@@ -15,7 +15,10 @@ const ROCKET_H = ROCKET_W * (425 / 130);
 const BOT_W = 70;        // bot sprite is 80x218
 const BOT_H = BOT_W * (218 / 80);
 
-type ObstacleKind = 'rocket' | 'bot';
+const SAT_W = 60;        // satellite sprite is 90x336 (bus at the gap side)
+const SAT_H = SAT_W * (336 / 90);
+
+type ObstacleKind = 'rocket' | 'bot' | 'sat';
 
 // Hitboxes are deliberately smaller than the visuals. The rockets taper to a
 // point at the gap, so their collision box stays narrow to avoid phantom hits.
@@ -30,6 +33,10 @@ function obstacleHalfWidth(kind: ObstacleKind, distFromTip: number): number {
   if (kind === 'bot') {
     // Bot head near the gap, wider torso/body behind it
     return distFromTip < 34 ? 14 : 26;
+  }
+  if (kind === 'sat') {
+    // Boxy satellite bus guards the gap, narrower solar panel behind it
+    return distFromTip < 55 ? 21 : 17;
   }
   // Rocket nose tapers to a point
   if (distFromTip >= NOSE_LEN) return 30;
@@ -78,6 +85,7 @@ class Game extends Phaser.Scene {
     this.load.image('rocket', ROCKET_PNG);
     this.load.image('elon', ELON_PNG);
     this.load.image('bot', BOT_PNG);
+    this.load.image('sat', SAT_PNG);
     this.load.image('skyline', SKYLINE_PNG);
   }
 
@@ -217,11 +225,11 @@ class Game extends Phaser.Scene {
 
     const topHeight = center - gap / 2, bottomY = center + gap / 2;
 
-    // After 15 rocket sets, the Tesla Bots take over
-    const kind: ObstacleKind = this.score >= 15 ? 'bot' : 'rocket';
-    const tex = kind === 'bot' ? 'bot' : 'rocket';
-    const w = kind === 'bot' ? BOT_W : ROCKET_W;
-    const h = kind === 'bot' ? BOT_H : ROCKET_H;
+    // Obstacle phases: rockets, then Tesla Bots at 15, then Starlink at 30
+    const kind: ObstacleKind = this.score >= 30 ? 'sat' : this.score >= 15 ? 'bot' : 'rocket';
+    const tex = kind === 'sat' ? 'sat' : kind === 'bot' ? 'bot' : 'rocket';
+    const w = kind === 'sat' ? SAT_W : kind === 'bot' ? BOT_W : ROCKET_W;
+    const h = kind === 'sat' ? SAT_H : kind === 'bot' ? BOT_H : ROCKET_H;
 
     // Top obstacle: flipped so its head/nose points down toward the gap
     const top = this.add.image(WIDTH + w / 2, topHeight - h / 2, tex)
@@ -234,6 +242,13 @@ class Game extends Phaser.Scene {
 
     this.pipes.push({ top, bottom, x: WIDTH + w / 2, scored: false, kind, w, h });
 
+  }
+
+  private showBanner(text: string) {
+    this.tweens.killTweensOf(this.bannerText);
+    this.bannerText.setText(text).setVisible(true).setAlpha(1);
+    this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1500, delay: 900,
+      onComplete: () => this.bannerText.setVisible(false) });
   }
 
   private end() {
@@ -291,11 +306,8 @@ class Game extends Phaser.Scene {
 
       if (!p.scored && p.x + p.w / 2 < ROADSTER_X - ROADSTER_W / 2) {
         p.scored = true; this.score++; this.scoreText.setText('Score: ' + this.score);
-        if (this.score === 15) {
-          this.bannerText.setVisible(true).setAlpha(1);
-          this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1500, delay: 900,
-            onComplete: () => this.bannerText.setVisible(false) });
-        }
+        if (this.score === 15) this.showBanner('TESLA BOTS\nINCOMING');
+        if (this.score === 30) this.showBanner('STARLINK\nINCOMING');
       }
 
       const topTip = p.top.y + p.h / 2;
