@@ -15,7 +15,16 @@ const ROCKET_H = ROCKET_W * (425 / 130);
 const CAR_HALF_TOP = 18;
 const CAR_HALF_BOTTOM = 20;
 const CAR_HIT_HALF_W = 28;
-const ROCKET_HIT_HALF_W = 20;
+
+// Half-width of the rocket at a given distance from its nose tip.
+// The nose tapers to a point, so the hitbox narrows toward the tip instead
+// of using the full body width everywhere.
+const NOSE_LEN = 60;
+function rocketHalfWidth(distFromTip: number): number {
+  if (distFromTip >= NOSE_LEN) return 30;
+  if (distFromTip <= 0) return 0;
+  return 5 + (30 - 5) * (distFromTip / NOSE_LEN);
+}
 
 const INTRO_TEXT = 'FLAPPY ROADSTER\n\nTap / Space to thrust\nDodge the rockets!';
 
@@ -163,13 +172,14 @@ class Game extends Phaser.Scene {
 
       if (!p.scored && p.x + ROCKET_W / 2 < ROADSTER_X - ROADSTER_W / 2) { p.scored = true; this.score++; this.scoreText.setText('Score: ' + this.score); }
 
-      if (Math.abs(p.x - ROADSTER_X) < ROCKET_HIT_HALF_W + CAR_HIT_HALF_W) {
+      const topTip = p.top.y + ROCKET_H / 2;
+      const botTip = p.bottom.y - ROCKET_H / 2;
+      const carTop = this.car.y - CAR_HALF_TOP, carBottom = this.car.y + CAR_HALF_BOTTOM;
 
-        const carTop = this.car.y - CAR_HALF_TOP, carBottom = this.car.y + CAR_HALF_BOTTOM;
-
-        if (carTop < p.top.y + ROCKET_H / 2 || carBottom > p.bottom.y - ROCKET_H / 2) { this.end(); return; }
-
-      }
+      // Top rocket: collides only if the car's top is above the nose tip,
+      // using the tapered width at the penetration depth.
+      if (carTop < topTip && Math.abs(p.x - ROADSTER_X) < rocketHalfWidth(topTip - carTop) + CAR_HIT_HALF_W) { this.end(); return; }
+      if (carBottom > botTip && Math.abs(p.x - ROADSTER_X) < rocketHalfWidth(carBottom - botTip) + CAR_HIT_HALF_W) { this.end(); return; }
 
     }
 
