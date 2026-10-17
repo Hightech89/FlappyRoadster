@@ -50,6 +50,10 @@ class Game extends Phaser.Scene {
 
   private spawnElapsed = 0;
 
+  private thrusters!: Phaser.GameObjects.Particles.ParticleEmitter;
+
+  private thrustAccum = 0;
+
   constructor() { super('game'); }
 
   preload() {
@@ -77,6 +81,25 @@ class Game extends Phaser.Scene {
       .setDisplaySize(ROADSTER_W, ROADSTER_W * (280 / 420))
       .setDepth(5);
 
+    // Cold-gas thruster particles: soft white puffs blasting downward
+    const puffGfx = this.add.graphics();
+    puffGfx.fillStyle(0xffffff, 0.35);
+    puffGfx.fillCircle(8, 8, 8);
+    puffGfx.fillStyle(0xffffff, 1);
+    puffGfx.fillCircle(8, 8, 6);
+    puffGfx.generateTexture('puff', 16, 16);
+    puffGfx.destroy();
+
+    this.thrusters = this.add.particles(0, 0, 'puff', {
+      speed: { min: 140, max: 280 },
+      angle: { min: 75, max: 105 },
+      lifespan: { min: 250, max: 550 },
+      scale: { start: 1, end: 0 },
+      alpha: { start: 0.85, end: 0 },
+      emitting: false
+    });
+    this.thrusters.setDepth(4);
+
     this.scoreText = this.add.text(16, 18, 'Score: 0', { fontFamily: 'Arial', fontSize: '26px', color: '#ffffff' }).setDepth(10);
 
     try { this.best = Number(localStorage.getItem(STORAGE_KEY)) || 0; } catch { this.best = 0; }
@@ -96,6 +119,22 @@ class Game extends Phaser.Scene {
 
     this.started = true; this.infoText.setVisible(false); this.velocity = -310;
 
+    // Cold-gas thruster burst under the car, like the Roadster's SpaceX package
+    for (const side of [-1, 1]) {
+      const p = this.thrusterPos(side * 18);
+      this.thrusters.explode(10, p.x, p.y);
+    }
+
+  }
+
+  // Thruster nozzle position under the car, rotated with the car's tilt
+  private thrusterPos(offsetX: number): { x: number; y: number } {
+    const rad = Phaser.Math.DegToRad(this.car.angle);
+    const oy = 20;
+    return {
+      x: this.car.x + offsetX * Math.cos(rad) - oy * Math.sin(rad),
+      y: this.car.y + offsetX * Math.sin(rad) + oy * Math.cos(rad)
+    };
   }
 
   // Manual reset instead of scene.restart(): reuses the already-loaded
@@ -107,6 +146,7 @@ class Game extends Phaser.Scene {
     this.velocity = 0;
     this.score = 0;
     this.spawnElapsed = 0;
+    this.thrustAccum = 0;
 
     for (const p of this.pipes) { p.top.destroy(); p.bottom.destroy(); }
     this.pipes = [];
@@ -159,6 +199,20 @@ class Game extends Phaser.Scene {
     this.car.y += this.velocity * dt;
 
     this.car.angle = Phaser.Math.Clamp(this.velocity * 0.07, -24, 65);
+
+    // Light thruster trail while the car is climbing
+    if (this.velocity < -80) {
+      this.thrustAccum += delta;
+      while (this.thrustAccum >= 60) {
+        this.thrustAccum -= 60;
+        for (const side of [-1, 1]) {
+          const p = this.thrusterPos(side * 18);
+          this.thrusters.explode(1, p.x, p.y);
+        }
+      }
+    } else {
+      this.thrustAccum = 0;
+    }
 
     this.spawnElapsed += delta;
 
