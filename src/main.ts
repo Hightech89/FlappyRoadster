@@ -192,8 +192,8 @@ class Game extends Phaser.Scene {
 
     const topHeight = center - gap / 2, bottomY = center + gap / 2;
 
-    // After 25 rocket sets, the Tesla Bots take over
-    const kind: ObstacleKind = this.score >= 25 ? 'bot' : 'rocket';
+    // After 15 rocket sets, the Tesla Bots take over
+    const kind: ObstacleKind = this.score >= 15 ? 'bot' : 'rocket';
     const tex = kind === 'bot' ? 'bot' : 'rocket';
     const w = kind === 'bot' ? BOT_W : ROCKET_W;
     const h = kind === 'bot' ? BOT_H : ROCKET_H;
@@ -263,7 +263,7 @@ class Game extends Phaser.Scene {
 
       if (!p.scored && p.x + p.w / 2 < ROADSTER_X - ROADSTER_W / 2) {
         p.scored = true; this.score++; this.scoreText.setText('Score: ' + this.score);
-        if (this.score === 25) {
+        if (this.score === 15) {
           this.bannerText.setVisible(true).setAlpha(1);
           this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1500, delay: 900,
             onComplete: () => this.bannerText.setVisible(false) });
