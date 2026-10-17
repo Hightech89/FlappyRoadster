@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ROADSTER_PNG, ROCKET_PNG, ELON_PNG } from './sprites';
+import { ROADSTER_PNG, ROCKET_PNG, ELON_PNG, BOT_PNG } from './sprites';
 
 const WIDTH = 420, HEIGHT = 720, ROADSTER_X = 100;
 
@@ -11,19 +11,27 @@ const ROADSTER_H = ROADSTER_W * (51 / 167);
 const ROCKET_W = 74;     // rocket.png is 130x425
 const ROCKET_H = ROCKET_W * (425 / 130);
 
+const BOT_W = 70;        // bot sprite is 80x218
+const BOT_H = BOT_W * (218 / 80);
+
+type ObstacleKind = 'rocket' | 'bot';
+
 // Hitboxes are deliberately smaller than the visuals. The rockets taper to a
 // point at the gap, so their collision box stays narrow to avoid phantom hits.
 const CAR_HALF_TOP = 10;
 const CAR_HALF_BOTTOM = 11;
 const CAR_HIT_HALF_W = 28;
 
-// Half-width of the rocket at a given distance from its nose tip.
-// The nose tapers to a point, so the hitbox narrows toward the tip instead
-// of using the full body width everywhere.
+// Half-width of the obstacle at a given distance from its gap-side tip.
 const NOSE_LEN = 60;
-function rocketHalfWidth(distFromTip: number): number {
-  if (distFromTip >= NOSE_LEN) return 30;
+function obstacleHalfWidth(kind: ObstacleKind, distFromTip: number): number {
   if (distFromTip <= 0) return 0;
+  if (kind === 'bot') {
+    // Bot head near the gap, wider torso/body behind it
+    return distFromTip < 34 ? 14 : 26;
+  }
+  // Rocket nose tapers to a point
+  if (distFromTip >= NOSE_LEN) return 30;
   return 5 + (30 - 5) * (distFromTip / NOSE_LEN);
 }
 
@@ -35,7 +43,7 @@ class Game extends Phaser.Scene {
 
   private velocity = 0;
 
-  private pipes: { top: Phaser.GameObjects.Image; bottom: Phaser.GameObjects.Image; x: number; scored: boolean }[] = [];
+  private pipes: { top: Phaser.GameObjects.Image; bottom: Phaser.GameObjects.Image; x: number; scored: boolean; kind: ObstacleKind; w: number; h: number }[] = [];
 
   private score = 0;
 
@@ -44,6 +52,8 @@ class Game extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
 
   private infoText!: Phaser.GameObjects.Text;
+
+  private bannerText!: Phaser.GameObjects.Text;
 
   private elon!: Phaser.GameObjects.Image;
 
@@ -64,6 +74,7 @@ class Game extends Phaser.Scene {
     this.load.image('roadster', ROADSTER_PNG);
     this.load.image('rocket', ROCKET_PNG);
     this.load.image('elon', ELON_PNG);
+    this.load.image('bot', BOT_PNG);
   }
 
   create() {
@@ -117,6 +128,10 @@ class Game extends Phaser.Scene {
       .setDepth(10)
       .setVisible(false);
 
+    // Warning banner shown once when the Tesla Bots take over
+    this.bannerText = this.add.text(WIDTH / 2, HEIGHT / 2 - 210, 'TESLA BOTS\nINCOMING', { fontFamily: 'Arial',
+    fontSize: '34px', color: '#ff6b6b', align: 'center', fontStyle: 'bold' }).setOrigin(0.5).setDepth(11).setVisible(false).setAlpha(0);
+
     this.input.on('pointerdown', () => this.flap());
 
     this.input.keyboard?.on('keydown-SPACE', () => this.flap());
@@ -166,6 +181,8 @@ class Game extends Phaser.Scene {
     this.infoText.setText(INTRO_TEXT).setVisible(true);
     this.infoText.setY(HEIGHT / 2 - 120);
     this.elon.setVisible(false);
+    this.tweens.killTweensOf(this.bannerText);
+    this.bannerText.setVisible(false);
 
   }
 
@@ -175,16 +192,22 @@ class Game extends Phaser.Scene {
 
     const topHeight = center - gap / 2, bottomY = center + gap / 2;
 
-    // Top rocket: flipped so its nose points down toward the gap
-    const top = this.add.image(WIDTH + ROCKET_W / 2, topHeight - ROCKET_H / 2, 'rocket')
-      .setDisplaySize(ROCKET_W, ROCKET_H)
+    // After 25 rocket sets, the Tesla Bots take over
+    const kind: ObstacleKind = this.score >= 25 ? 'bot' : 'rocket';
+    const tex = kind === 'bot' ? 'bot' : 'rocket';
+    const w = kind === 'bot' ? BOT_W : ROCKET_W;
+    const h = kind === 'bot' ? BOT_H : ROCKET_H;
+
+    // Top obstacle: flipped so its head/nose points down toward the gap
+    const top = this.add.image(WIDTH + w / 2, topHeight - h / 2, tex)
+      .setDisplaySize(w, h)
       .setFlipY(true);
 
-    // Bottom rocket: nose pointing up toward the gap
-    const bottom = this.add.image(WIDTH + ROCKET_W / 2, bottomY + ROCKET_H / 2, 'rocket')
-      .setDisplaySize(ROCKET_W, ROCKET_H);
+    // Bottom obstacle: head/nose pointing up toward the gap
+    const bottom = this.add.image(WIDTH + w / 2, bottomY + h / 2, tex)
+      .setDisplaySize(w, h);
 
-    this.pipes.push({ top, bottom, x: WIDTH + ROCKET_W / 2, scored: false });
+    this.pipes.push({ top, bottom, x: WIDTH + w / 2, scored: false, kind, w, h });
 
   }
 
@@ -238,16 +261,23 @@ class Game extends Phaser.Scene {
 
       p.x -= 180 * dt; p.top.x = p.x; p.bottom.x = p.x;
 
-      if (!p.scored && p.x + ROCKET_W / 2 < ROADSTER_X - ROADSTER_W / 2) { p.scored = true; this.score++; this.scoreText.setText('Score: ' + this.score); }
+      if (!p.scored && p.x + p.w / 2 < ROADSTER_X - ROADSTER_W / 2) {
+        p.scored = true; this.score++; this.scoreText.setText('Score: ' + this.score);
+        if (this.score === 25) {
+          this.bannerText.setVisible(true).setAlpha(1);
+          this.tweens.add({ targets: this.bannerText, alpha: 0, duration: 1500, delay: 900,
+            onComplete: () => this.bannerText.setVisible(false) });
+        }
+      }
 
-      const topTip = p.top.y + ROCKET_H / 2;
-      const botTip = p.bottom.y - ROCKET_H / 2;
+      const topTip = p.top.y + p.h / 2;
+      const botTip = p.bottom.y - p.h / 2;
       const carTop = this.car.y - CAR_HALF_TOP, carBottom = this.car.y + CAR_HALF_BOTTOM;
 
-      // Top rocket: collides only if the car's top is above the nose tip,
-      // using the tapered width at the penetration depth.
-      if (carTop < topTip && Math.abs(p.x - ROADSTER_X) < rocketHalfWidth(topTip - carTop) + CAR_HIT_HALF_W) { this.end(); return; }
-      if (carBottom > botTip && Math.abs(p.x - ROADSTER_X) < rocketHalfWidth(carBottom - botTip) + CAR_HIT_HALF_W) { this.end(); return; }
+      // Top obstacle: collides only if the car's top is above the gap-side tip,
+      // using the shape-aware width at the penetration depth.
+      if (carTop < topTip && Math.abs(p.x - ROADSTER_X) < obstacleHalfWidth(p.kind, topTip - carTop) + CAR_HIT_HALF_W) { this.end(); return; }
+      if (carBottom > botTip && Math.abs(p.x - ROADSTER_X) < obstacleHalfWidth(p.kind, carBottom - botTip) + CAR_HIT_HALF_W) { this.end(); return; }
 
     }
 
