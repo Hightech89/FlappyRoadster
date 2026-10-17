@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ROADSTER_PNG, ROCKET_PNG, ELON_PNG, BOT_PNG } from './sprites';
+import { SKYLINE_PNG } from './sprites2';
 
 const WIDTH = 420, HEIGHT = 720, ROADSTER_X = 100;
 
@@ -53,6 +54,8 @@ class Game extends Phaser.Scene {
 
   private infoText!: Phaser.GameObjects.Text;
 
+  private dashes!: Phaser.GameObjects.TileSprite;
+
   private bannerText!: Phaser.GameObjects.Text;
 
   private elon!: Phaser.GameObjects.Image;
@@ -75,21 +78,43 @@ class Game extends Phaser.Scene {
     this.load.image('rocket', ROCKET_PNG);
     this.load.image('elon', ELON_PNG);
     this.load.image('bot', BOT_PNG);
+    this.load.image('skyline', SKYLINE_PNG);
   }
 
   create() {
 
     this.cameras.main.setBackgroundColor('#101727');
 
-    this.add.rectangle(WIDTH / 2, HEIGHT - 45, WIDTH, 90, 0x202f46);
+    // Moon with a soft glow
+    const moonGfx = this.add.graphics();
+    moonGfx.fillStyle(0xe8ecf5, 0.10);
+    moonGfx.fillCircle(344, 116, 46);
+    moonGfx.fillStyle(0xe8ecf5, 0.22);
+    moonGfx.fillCircle(344, 116, 33);
+    moonGfx.fillStyle(0xf2f5fb, 1);
+    moonGfx.fillCircle(344, 116, 24);
 
-    for (let i = 0; i < 16; i++) {
-
-      const x = (i * 73) % WIDTH, y = (i * 107 + 41) % (HEIGHT - 110);
-
-      this.add.circle(x, y, 1.5, 0xc4d8ff, 0.65);
-
+    // A few stars high in the sky
+    for (let i = 0; i < 12; i++) {
+      const x = (i * 89 + 31) % WIDTH, y = (i * 53 + 17) % 200;
+      this.add.circle(x, y, 1.5, 0xc4d8ff, 0.6);
     }
+
+    // Distant launch-facility skyline on the horizon
+    // (sits slightly low so the road overlaps its bottom edge)
+    this.add.image(WIDTH / 2, HEIGHT - 90 - 90 + 8, 'skyline').setDisplaySize(420, 180);
+
+    // Road
+    this.add.rectangle(WIDTH / 2, HEIGHT - 45, WIDTH, 90, 0x161b28);
+    this.add.rectangle(WIDTH / 2, HEIGHT - 90, WIDTH, 3, 0x2e3648);
+
+    // Scrolling lane dashes
+    const dashGfx = this.add.graphics();
+    dashGfx.fillStyle(0xd8dee9, 1);
+    dashGfx.fillRoundedRect(5, 41, 60, 8, 4);
+    dashGfx.generateTexture('dash', 70, 90);
+    dashGfx.destroy();
+    this.dashes = this.add.tileSprite(WIDTH / 2, HEIGHT - 45, WIDTH, 90, 'dash');
 
     // The Tesla Roadster, scaled to gameplay size
     this.car = this.add.image(ROADSTER_X, HEIGHT / 2, 'roadster')
@@ -230,6 +255,9 @@ class Game extends Phaser.Scene {
     if (!this.started || this.over) return;
 
     const dt = Math.min(delta / 1000, 0.05);
+
+    // Road dashes scroll with the world
+    this.dashes.tilePositionX -= 180 * dt;
 
     this.velocity += 790 * dt;
 
